@@ -242,18 +242,69 @@ void test_notInList(void)
   free(data);
 }
 
+
+
+void test_remove_all_nodes(void)
+{
+    populate_list();
+    while (lst_->size > 0) {
+        void *data = list_remove_index(lst_, 0);
+        free(data);
+    }
+    TEST_ASSERT_TRUE(lst_->size == 0);
+    TEST_ASSERT_TRUE(lst_->head->next == lst_->head);
+    TEST_ASSERT_TRUE(lst_->head->prev == lst_->head);
+}
+
+
+void test_circularity_after_operations(void)
+{
+    populate_list();
+    int *data = alloc_data(42);
+    list_add(lst_, data);
+
+    TEST_ASSERT_TRUE(lst_->head->next->prev == lst_->head);
+    TEST_ASSERT_TRUE(lst_->head->prev->next == lst_->head);
+
+}
+
+
+void test_destroy_populated_list(void)
+{
+    populate_list();
+    list_destroy(&lst_);
+    TEST_ASSERT_TRUE(lst_ == NULL);
+}
+
+void test_indexof_non_existent_data(void)
+{
+    populate_list();
+    int *data = alloc_data(999);
+    int idx = list_indexof(lst_, data);
+    TEST_ASSERT_EQUAL_INT(-1, idx);
+    free(data); 
+}
+
+
+
+
 int main(void) {
-  UNITY_BEGIN();
-  RUN_TEST(test_create_destroy);
-  RUN_TEST(test_add1);
-  RUN_TEST(test_add2);
-  RUN_TEST(test_removeIndex0);
-  RUN_TEST(test_removeIndex3);
-  RUN_TEST(test_removeIndex4);
-  RUN_TEST(test_invaidIndex);
-  RUN_TEST(test_removeAll);
-  RUN_TEST(test_indexOf0);
-  RUN_TEST(test_indexOf3);
-  RUN_TEST(test_notInList);
-  return UNITY_END();
+    UNITY_BEGIN();
+    RUN_TEST(test_create_destroy);
+    RUN_TEST(test_add1);
+    RUN_TEST(test_add2);
+    RUN_TEST(test_removeIndex0);
+    RUN_TEST(test_removeIndex3);
+    RUN_TEST(test_removeIndex4);
+    RUN_TEST(test_invaidIndex);
+    RUN_TEST(test_removeAll);
+    RUN_TEST(test_indexOf0);
+    RUN_TEST(test_indexOf3);
+    RUN_TEST(test_notInList);
+    // New tests
+    RUN_TEST(test_remove_all_nodes);
+    RUN_TEST(test_circularity_after_operations);
+    RUN_TEST(test_destroy_populated_list);
+    RUN_TEST(test_indexof_non_existent_data);
+    return UNITY_END();
 }
