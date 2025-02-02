@@ -285,6 +285,74 @@ void test_indexof_non_existent_data(void)
     free(data); 
 }
 
+// Adding new tests based on code review feedback for edge cases and stress test
+void test_remove_from_empty_list(void)
+{
+    void *data = list_remove_index(lst_, 0);
+    TEST_ASSERT_TRUE(data == NULL);
+}
+
+void test_add_multiple_identical_elements(void)
+{
+    int *data1 = alloc_data(5);
+    int *data2 = alloc_data(5);
+    int *data3 = alloc_data(5);
+
+    list_add(lst_, data1);
+    list_add(lst_, data2);
+    list_add(lst_, data3);
+
+    TEST_ASSERT_TRUE(lst_->size == 3);
+
+    int found_index1 = list_indexof(lst_, data1);
+    int found_index2 = list_indexof(lst_, data2);
+    int found_index3 = list_indexof(lst_, data3);
+
+    TEST_ASSERT_TRUE(found_index1 != -1);
+    TEST_ASSERT_TRUE(found_index2 != -1);
+    TEST_ASSERT_TRUE(found_index3 != -1);
+
+}
+
+
+void test_remove_last_element(void)
+{
+    populate_list();
+    int *rval = (int *)list_remove_index(lst_, lst_->size - 1);
+    TEST_ASSERT_TRUE(lst_->size == 4);
+    free(rval);
+
+    TEST_ASSERT_FALSE(lst_->head->next == NULL);
+    TEST_ASSERT_FALSE(lst_->head->prev == NULL);
+}
+
+void test_destroy_empty_list(void)
+{
+    list_destroy(&lst_);
+    TEST_ASSERT_TRUE(lst_ == NULL);
+}
+
+void test_handling_large_data(void)
+{
+    const size_t LARGE_SIZE = 100000;
+
+    for (size_t i = 0; i < LARGE_SIZE; i++) {
+        list_add(lst_, alloc_data(i));
+    }
+
+    TEST_ASSERT_TRUE(lst_->size == LARGE_SIZE);
+
+    for (size_t i = 0; i < LARGE_SIZE; i++) {
+        int *rval = (int *)list_remove_index(lst_, 0);
+        free(rval);
+    }
+
+    TEST_ASSERT_TRUE(lst_->size == 0);
+    TEST_ASSERT_TRUE(lst_->head->next == lst_->head);
+    TEST_ASSERT_TRUE(lst_->head->prev == lst_->head);
+}
+
+
 
 
 
@@ -306,5 +374,12 @@ int main(void) {
     RUN_TEST(test_circularity_after_operations);
     RUN_TEST(test_destroy_populated_list);
     RUN_TEST(test_indexof_non_existent_data);
+    // Tests added based off code review feedback
+    RUN_TEST(test_remove_from_empty_list);
+    RUN_TEST(test_add_multiple_identical_elements);
+    RUN_TEST(test_remove_last_element);
+    RUN_TEST(test_destroy_empty_list);
+    RUN_TEST(test_handling_large_data);
+
     return UNITY_END();
 }
