@@ -10,15 +10,13 @@
 void parse_args(int argc, char **argv)
 {
     int opt;
-    // Only recognize the -v flag
     while ((opt = getopt(argc, argv, "v")) != -1)
     {
-        switch(opt)
+        switch (opt)
         {
             case 'v':
                 printf("lab version %d.%d\n", lab_VERSION_MAJOR, lab_VERSION_MINOR);
                 exit(EXIT_SUCCESS);
-                break;
             default:
                 fprintf(stderr, "Usage: %s [-v]\n", argv[0]);
                 exit(EXIT_FAILURE);
@@ -26,12 +24,21 @@ void parse_args(int argc, char **argv)
     }
 }
 
-
-/* Initializes the shell (placeholder for now for testing) */
+/* Initializes the shell */
 void sh_init(struct shell *sh) {
     sh->shell_terminal = STDIN_FILENO;
     sh->shell_is_interactive = isatty(sh->shell_terminal);
-    sh->prompt = "shell>";
+
+    if (sh->prompt) {
+        free(sh->prompt);
+        sh->prompt = NULL;
+    }
+
+    sh->prompt = get_prompt("MY_PROMPT");
+
+    if (!sh->prompt) {
+        sh->prompt = strdup("shell>");
+    }
 }
 
 /* Cleanup shell resources */
@@ -39,12 +46,20 @@ void sh_destroy(struct shell *sh) {
     free(sh->prompt);
 }
 
-/* Trim leading/trailing whitespace (placeholder for now for testing)*/
+/* Trim leading/trailing whitespace */
 char *trim_white(char *line) {
+    if (!line) return NULL;
+
+    while (*line == ' ') line++;
+
+    char *end = line + strlen(line) - 1;
+    while (end > line && *end == ' ') end--;
+    *(end + 1) = '\0';
+
     return line;
 }
 
-/* Parse command (placeholder for now for testing) */
+/* Parse command */
 char **cmd_parse(const char *line) {
     UNUSED(line);
     return NULL;
@@ -55,23 +70,25 @@ void cmd_free(char **cmd) {
     if (cmd) free(cmd);
 }
 
-/* Handle built-in commands (placeholder for now for testing)*/
+/* Handle built-in commands */
 bool do_builtin(struct shell *sh, char **argv) {
     UNUSED(sh);
     UNUSED(argv);
     return false;
 }
 
+/* Retrieve shell prompt */
 char *get_prompt(const char *env) {
     const char *prompt = getenv(env);
-    if (!prompt) {
+    if (!prompt || strlen(prompt) == 0) {
         prompt = "shell>";
     }
     return strdup(prompt);
 }
 
+/* Change working directory */
 int change_dir(char **dir) {
-    if (!dir || !dir[1]) {  // No argument, go to HOME
+    if (!dir || !dir[1]) {
         const char *home = getenv("HOME");
         if (!home) {
             struct passwd *pw = getpwuid(getuid());
