@@ -1,110 +1,91 @@
-#include "lab.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <pwd.h>
+#include <readline/readline.h>
+#include <readline/history.h>
+#include "lab.h"
 
-// Initializes a new list
-list_t *list_init(void (*destroy_data)(void *), int (*compare_to)(const void *, const void *)) {
-    if (!destroy_data || !compare_to) return NULL;
-
-    list_t *list = (list_t *)malloc(sizeof(list_t));
-    if (!list) return NULL;
-
-    // Assigns a sentinel node for the list
-    node_t *sentinel = (node_t *)malloc(sizeof(node_t));
-    if (!sentinel) {
-        free(list);
-        return NULL;
-    }
-
-    sentinel->data = NULL;
-    sentinel->next = sentinel;
-    sentinel->prev = sentinel;
-
-    list->destroy_data = destroy_data;
-    list->compare_to = compare_to;
-    list->size = 0;
-    list->head = sentinel;
-
-    return list;
-}
-
-// Destroys the list and frees all memory
-void list_destroy(list_t **list) {
-    if (!list || !(*list)) return;
-
-    node_t *current = (*list)->head->next;
-
-    // Free all nodes except the sentinel
-    while (current != (*list)->head) {
-        node_t *next = current->next;
-        if ((*list)->destroy_data) (*list)->destroy_data(current->data);
-        free(current);
-        current = next;
-    }
-
-    // Free the sentinel node and list itself
-    free((*list)->head);
-    free(*list);
-    *list = NULL;
-}
-
-// Adds data to the front of the list
-list_t *list_add(list_t *list, void *data) {
-    if (!list || !data) return NULL;
-
-    node_t *new_node = (node_t *)malloc(sizeof(node_t));
-    if (!new_node) return NULL;
-
-    node_t *head = list->head;
-
-    new_node->data = data;
-    new_node->next = head->next;
-    new_node->prev = head;
-
-    head->next->prev = new_node;
-    head->next = new_node;
-
-    list->size++;
-    return list;
-}
-
-// Removes the node at the given index and returns its data
-void *list_remove_index(list_t *list, size_t index) {
-    if (!list || index >= list->size) return NULL;
-
-    node_t *current = list->head->next;
-
-    // Find the node at the specified index
-    for (size_t i = 0; i < index; i++) {
-        current = current->next;
-    }
-
-    // Remove the node
-    current->prev->next = current->next;
-    current->next->prev = current->prev;
-
-    void *data = current->data;
-    free(current);
-    list->size--;
-
-    return data;
-}
-
-// Finds the index of the first occurrence of the requested data
-int list_indexof(list_t *list, void *data) {
-    if (!list || !data) return -1;
-
-    node_t *current = list->head->next;
-    size_t index = 0;
-
-    // Traverse the list and compare data and stops at the sentinel
-    while (current != list->head) {
-        if (list->compare_to(data, current->data) == 0) {
-            return (int)index;
+void parse_args(int argc, char **argv)
+{
+    int opt;
+    // Only recognize the -v flag
+    while ((opt = getopt(argc, argv, "v")) != -1)
+    {
+        switch(opt)
+        {
+            case 'v':
+                printf("lab version %d.%d\n", lab_VERSION_MAJOR, lab_VERSION_MINOR);
+                exit(EXIT_SUCCESS);
+                break;
+            default:
+                fprintf(stderr, "Usage: %s [-v]\n", argv[0]);
+                exit(EXIT_FAILURE);
         }
-        current = current->next;
-        index++;
     }
+}
 
-    return -1;
+
+/* Initializes the shell (placeholder for now for testing) */
+void sh_init(struct shell *sh) {
+    sh->shell_terminal = STDIN_FILENO;
+    sh->shell_is_interactive = isatty(sh->shell_terminal);
+    sh->prompt = "shell>";
+}
+
+/* Cleanup shell resources */
+void sh_destroy(struct shell *sh) {
+    free(sh->prompt);
+}
+
+/* Trim leading/trailing whitespace (placeholder for now for testing)*/
+char *trim_white(char *line) {
+    return line;
+}
+
+/* Parse command (placeholder for now for testing) */
+char **cmd_parse(const char *line) {
+    UNUSED(line);
+    return NULL;
+}
+
+/* Free command memory */
+void cmd_free(char **cmd) {
+    if (cmd) free(cmd);
+}
+
+/* Handle built-in commands (placeholder for now for testing)*/
+bool do_builtin(struct shell *sh, char **argv) {
+    UNUSED(sh);
+    UNUSED(argv);
+    return false;
+}
+
+char *get_prompt(const char *env) {
+    const char *prompt = getenv(env);
+    if (!prompt) {
+        prompt = "shell>";
+    }
+    return strdup(prompt);
+}
+
+int change_dir(char **dir) {
+    if (!dir || !dir[1]) {  // No argument, go to HOME
+        const char *home = getenv("HOME");
+        if (!home) {
+            struct passwd *pw = getpwuid(getuid());
+            if (pw) home = pw->pw_dir;
+        }
+        if (chdir(home) != 0) {
+            perror("cd");
+            return -1;
+        }
+        return 0;
+    }
+    if (chdir(dir[1]) != 0) {
+        perror("cd");
+        return -1;
+    }
+    return 0;
 }
