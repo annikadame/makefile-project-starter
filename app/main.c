@@ -9,25 +9,25 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <fcntl.h>
+#include <unistd.h>
 #include "../src/lab.h"
 
 static void explain_waitpid(int status)
 {
-    if (!WIFEXITED(status))
-    {
-        fprintf(stderr, "Child exited with status %d\n", WEXITSTATUS(status));
+    if (WIFSIGNALED(status)) {
+        fprintf(stderr, "Process terminated by signal %d\n", WTERMSIG(status));
+    } else if (WIFEXITED(status)) {
+        fprintf(stderr, "Process exited normally with status %d\n", WEXITSTATUS(status));
     }
-    if (WIFSIGNALED(status))
-    {
-        fprintf(stderr, "Child exited via signal %d\n", WTERMSIG(status));
-    }
-    if (WIFSTOPPED(status))
-    {
-        fprintf(stderr, "Child stopped by %d\n", WSTOPSIG(status));
-    }
-    if (WIFCONTINUED(status))
-    {
-        fprintf(stderr, "Child was resumed by delivery of SIGCONT\n");
+}
+
+// Handles Ctrl+C signal to prevent exiting the shell
+void handle_signal(int signo) {
+    if (signo == SIGINT) {
+        printf("\n");
+        rl_on_new_line();
+        rl_replace_line("", 0);
+        rl_redisplay();
     }
 }
 
@@ -37,29 +37,26 @@ int main(int argc, char *argv[])
     struct shell sh = {0};  
     sh_init(&sh);
 
+    // Ignore signals in the shell process to prevent accidental termination
+    struct sigaction sa;
+    sa.sa_handler = SIG_IGN;
+    sa.sa_flags = SA_RESTART;
+    sigaction(SIGINT, &sa, NULL);
+    sigaction(SIGQUIT, &sa, NULL);
+    sigaction(SIGTSTP, &sa, NULL);
+
     char *line;
-    using_history();  
+    using_history();
 
-    while (1) {
-        line = readline(sh.prompt);
-
-        if (!line) {
-            break;  
-        }
-
-        char *trimmed_line = trim_white(line);
-        if (!*trimmed_line) {
+    while ((line = readline(sh.prompt))) {
+        // do nothing on blank lines don't save history or attempt to exec
+        line = trim_white(line);
+        if (!*line) {
             free(line);
             continue;
         }
-
         add_history(line);
         char **cmd = cmd_parse(line);
-        if (!cmd) {
-            free(line);
-            continue;
-        }
-
         if (!do_builtin(&sh, cmd))
         {
             pid_t pid = fork();
@@ -75,7 +72,6 @@ int main(int argc, char *argv[])
                 signal(SIGTTIN, SIG_DFL);
                 signal(SIGTTOU, SIG_DFL);
                 execvp(cmd[0], cmd);
-                perror("execvp failed");
                 exit(EXIT_FAILURE);
             }
             else if (pid < 0)
@@ -84,8 +80,7 @@ int main(int argc, char *argv[])
                 perror("fork return < 0 Process creation failed!");
                 abort();
             }
-
-           /*
+            /*
             This is in the parent put the child process into its own
             process group and give it control of the terminal
             to avoid a race condition
@@ -101,11 +96,19 @@ int main(int argc, char *argv[])
                 explain_waitpid(status);
             }
             cmd_free(cmd);
+            // get control of the shell
+            tcsetpgrp(sh.shell_terminal, sh.shell_pgid);
         }
-
-        free(line);
-        // get control of the shell
-        tcsetpgrp(sh.shell_terminal, sh.shell_pgid);
+        else {
+            if (strcmp(cmd[0], "exit") == 0) {  // Exit shell if "exit" is entered
+                cmd_free(cmd);
+                free(line);
+                break;
+            }
+            cmd_free(cmd);
+            free(line);
+            continue;
+        }
     }
 
     sh_destroy(&sh);

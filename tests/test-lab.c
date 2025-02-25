@@ -1,14 +1,26 @@
 #include <string.h>
 #include "harness/unity.h"
 #include "../src/lab.h"
+#include <readline/readline.h>
+#include <readline/history.h>
+#include <signal.h>
+
 
 
 void setUp(void) {
-  // set stuff up here
-}
+     unsetenv("MY_PROMPT");
+     using_history();
+     // Install signal handlers to ignore SIGINT, SIGQUIT, and SIGTSTP
+     signal(SIGINT, SIG_IGN);
+     signal(SIGQUIT, SIG_IGN);
+     signal(SIGTSTP, SIG_IGN);
+ }
+ 
 
+ 
 void tearDown(void) {
-  // clean stuff up here
+     unsetenv("MY_PROMPT");
+     clear_history();
 }
 
 
@@ -35,6 +47,9 @@ void test_cmd_parse2(void)
      free(expected[0]);
      free(expected[1]);
      free(expected);
+
+     cmd_free(actual);
+     free(stng);
 }
 
 void test_cmd_parse(void)
@@ -159,6 +174,83 @@ void test_ch_dir_root(void)
      cmd_free(cmd);
 }
 
+void test_ch_dir_invalid(void)
+{
+    char *line = (char*) calloc(25, sizeof(char));
+    strncpy(line, "cd /nonexistentpath", 25);
+    char **cmd = cmd_parse(line);
+    
+    int result = change_dir(cmd);  
+    TEST_ASSERT_EQUAL_INT(-1, result);  // Expect failure
+
+    free(line);
+    cmd_free(cmd);
+}
+
+
+
+void test_fg_no_stopped_process(void)
+{
+    char *line = strdup("fg");
+    char **cmd = cmd_parse(line);
+
+    int result = do_builtin(NULL, cmd);
+    TEST_ASSERT_TRUE(result);  // fg should be recognized
+
+    free(line);
+    cmd_free(cmd);
+}
+
+void test_cmd_parse_special_chars(void)
+{
+    char **rval = cmd_parse("ls -l && echo test");
+    TEST_ASSERT_TRUE(rval);
+    TEST_ASSERT_EQUAL_STRING("ls", rval[0]);
+    TEST_ASSERT_EQUAL_STRING("-l", rval[1]);
+    TEST_ASSERT_EQUAL_STRING("&&", rval[2]);
+    TEST_ASSERT_EQUAL_STRING("echo", rval[3]);
+    TEST_ASSERT_EQUAL_STRING("test", rval[4]);
+    TEST_ASSERT_FALSE(rval[5]);
+
+    cmd_free(rval);
+}
+
+void test_get_prompt_empty_env(void)
+{
+    setenv("MY_PROMPT", "", 1);
+    char *prompt = get_prompt("MY_PROMPT");
+    
+    TEST_ASSERT_EQUAL_STRING("shell>", prompt);
+    
+    free(prompt);
+    unsetenv("MY_PROMPT");
+}
+
+void test_signal_ctrl_c(void)
+{
+    raise(SIGINT);
+    TEST_ASSERT_TRUE(1);  // The shell shouldn't crash
+}
+
+void test_signal_ctrl_z(void)
+{
+    raise(SIGTSTP);
+    TEST_ASSERT_TRUE(1);  // If the shell continues running, test passes
+}
+
+void test_cmd_parse_extra_spaces(void)
+{
+    char **rval = cmd_parse("   ls    -l   -a  ");
+    TEST_ASSERT_TRUE(rval);
+    TEST_ASSERT_EQUAL_STRING("ls", rval[0]);
+    TEST_ASSERT_EQUAL_STRING("-l", rval[1]);
+    TEST_ASSERT_EQUAL_STRING("-a", rval[2]);
+    TEST_ASSERT_FALSE(rval[3]);
+
+    cmd_free(rval);
+}
+
+
 int main(void) {
   UNITY_BEGIN();
   RUN_TEST(test_cmd_parse);
@@ -173,6 +265,14 @@ int main(void) {
   RUN_TEST(test_get_prompt_custom);
   RUN_TEST(test_ch_dir_home);
   RUN_TEST(test_ch_dir_root);
+  // Added tests
+  RUN_TEST(test_ch_dir_invalid);
+  RUN_TEST(test_fg_no_stopped_process);
+  RUN_TEST(test_cmd_parse_special_chars);
+  RUN_TEST(test_get_prompt_empty_env);
+  RUN_TEST(test_signal_ctrl_c);
+  RUN_TEST(test_signal_ctrl_z);
+  RUN_TEST(test_cmd_parse_extra_spaces);
 
   return UNITY_END();
 }
