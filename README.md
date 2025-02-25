@@ -1,10 +1,10 @@
-# Makefile Project Template
+# Project 2
 
 This project implements a simple shell with several features including custom prompt support, built-in commands (exit, cd, and fg), job control, and signal handling. It also prints the version when started with a command line argument.
 
 ## Features
 
--Print Version:
+- Print Version:
   Run the shell with the `-v` flag to print the lab version (ex: `./myprogram -v`).
 
 - GNU Readline:  
